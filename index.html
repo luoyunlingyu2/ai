@@ -31,11 +31,16 @@
             <div class="chat-header">
                 <button id="show-sidebar-btn" class="mobile-only"><i class="fas fa-bars"></i></button>
                 <h3>当前对话</h3>
-                <div class="api-selector">
-                    <select id="api-channel-selector">
-                        <!-- API渠道选项将在这里动态生成 -->
-                    </select>
-                    <span id="api-balance" title="当前渠道余额">余额: 查询中...</span>
+                <div class="api-controls">
+                    <div class="api-selector">
+                        <select id="api-channel-selector">
+                            <!-- API渠道选项将在这里动态生成 -->
+                        </select>
+                        <select id="model-selector">
+                            <!-- 模型选项将在这里动态生成 -->
+                        </select>
+                        <span id="api-balance" title="当前渠道余额">余额: 查询中...</span>
+                    </div>
                 </div>
             </div>
             
@@ -53,7 +58,7 @@
             <div class="message-stats">
                 <span id="user-stats">我: 0字符 (0 tokens)</span>
                 <span id="assistant-stats">助手: 0字符 (0 tokens)</span>
-                <span id="time-stats">耗时: 0ms</span>
+                <span id="time-stats">耗时: 0s</span>
             </div>
         </div>
     </div>
@@ -96,8 +101,8 @@
                         <input type="password" id="api-key" required>
                     </div>
                     <div class="form-group">
-                        <label for="api-model">模型名称</label>
-                        <input type="text" id="api-model" placeholder="例如: gpt-3.5-turbo">
+                        <label for="api-models">支持的模型 (一行一个)</label>
+                        <textarea id="api-models" rows="3" placeholder="例如:&#10;gpt-3.5-turbo&#10;gpt-4"></textarea>
                     </div>
                     <button type="submit">保存</button>
                 </form>

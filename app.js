@@ -12,17 +12,19 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
-    // 初始化DOM引用
+    // 获取DOM元素引用
     const chatMessages = document.getElementById('chat-messages');
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
     const newChatBtn = document.getElementById('new-chat-btn');
     const settingsBtn = document.getElementById('settings-btn');
     const apiChannelSelector = document.getElementById('api-channel-selector');
+    const modelSelector = document.getElementById('model-selector');
     const apiBalance = document.getElementById('api-balance');
     const settingsModal = document.getElementById('settings-modal');
     const addChannelModal = document.getElementById('add-channel-modal');
     const addChannelForm = document.getElementById('add-channel-form');
+    const addChannelBtn = document.getElementById('add-channel-btn');
     const userStats = document.getElementById('user-stats');
     const assistantStats = document.getElementById('assistant-stats');
     const timeStats = document.getElementById('time-stats');
@@ -30,116 +32,10 @@ function initializeApp() {
     const toggleSidebarBtn = document.getElementById('toggle-sidebar-btn');
     const sidebar = document.querySelector('.sidebar');
 
-    // 加载数据
+    // 初始化数据
     loadApiChannels();
     loadConversations();
-    
-    // 设置事件监听
     setupEventListeners();
-
-    // 发送消息
-    function sendMessage() {
-        const text = messageInput.value.trim();
-        if (!text || isStreaming) return;
-        
-        if (!currentChannelId) {
-            alert('请先添加并选择API渠道');
-            return;
-        }
-        
-        const channel = apiChannels.find(c => c.id === currentChannelId);
-        if (!channel) {
-            alert('所选API渠道不可用');
-            return;
-        }
-        
-        // 找到当前对话
-        const conversation = conversations.find(c => c.id === currentConversationId);
-        if (!conversation) return;
-        
-        // 添加用户消息
-        const userMessage = {
-            role: 'user',
-            content: text,
-            timestamp: new Date().toISOString(),
-            tokens: estimateTokens(text)
-        };
-        conversation.messages.push(userMessage);
-        
-        // 如果是第一条消息，更新对话标题
-        if (conversation.messages.length === 1 || !conversation.title || conversation.title === '新对话') {
-            conversation.title = text.length > 20 ? text.substring(0, 20) + '...' : text;
-            renderConversationsList();
-        }
-        
-        saveConversations();
-        renderMessages(conversation.messages);
-        
-        // 清空输入框
-        messageInput.value = '';
-        messageInput.style.height = 'auto';
-        
-        // 更新统计
-        updateUserStats(userMessage);
-        
-        // 记录开始时间
-        startTime = Date.now();
-        
-        // 创建临时的助手消息占位符
-        const assistantMessage = {
-            role: 'assistant',
-            content: '<span class="typing-indicator">思考中</span>',
-            timestamp: new Date().toISOString(),
-            tokens: 0
-        };
-        conversation.messages.push(assistantMessage);
-        renderMessages(conversation.messages);
-        
-        try {
-            isStreaming = true;
-            
-            // 准备发送到API的消息历史
-            const apiMessages = conversation.messages
-                .filter(m => m.role === 'user' || m.role === 'assistant')
-                .slice(0, -1)  // 不包括刚添加的占位符
-                .map(m => ({ role: m.role, content: m.content }));
-            
-            // 添加用户最新消息
-            apiMessages.push({ role: 'user', content: text });
-            
-            // 调用API
-            callOpenAI(channel, apiMessages).then(response => {
-                // 更新助手消息
-                assistantMessage.content = response.content;
-                assistantMessage.tokens = response.tokens;
-                assistantMessage.timestamp = new Date().toISOString();
-                
-                // 保存并更新界面
-                saveConversations();
-                renderMessages(conversation.messages);
-                
-                // 更新统计
-                updateAssistantStats(assistantMessage);
-                updateTimeStats(Date.now() - startTime);
-            }).catch(error => {
-                // 更新为错误消息
-                assistantMessage.content = `<span class="error">错误: ${error.message}</span>`;
-                saveConversations();
-                renderMessages(conversation.messages);
-                console.error('API调用失败:', error);
-            }).finally(() => {
-                isStreaming = false;
-            });
-            
-        } catch (error) {
-            // 更新为错误消息
-            assistantMessage.content = `<span class="error">错误: ${error.message}</span>`;
-            saveConversations();
-            renderMessages(conversation.messages);
-            console.error('API调用失败:', error);
-            isStreaming = false;
-        }
-    }
 
     // 设置事件监听器
     function setupEventListeners() {
@@ -167,11 +63,25 @@ function initializeApp() {
             settingsModal.style.display = 'block';
         });
 
+        // 添加新渠道
+        addChannelBtn.addEventListener('click', () => {
+            // 重置表单
+            addChannelForm.reset();
+            addChannelForm.dataset.mode = 'add';
+            delete addChannelForm.dataset.channelId;
+            addChannelModal.style.display = 'block';
+        });
+
         // 关闭模态框
         document.querySelectorAll('.close-modal').forEach(btn => {
             btn.addEventListener('click', () => {
                 settingsModal.style.display = 'none';
                 addChannelModal.style.display = 'none';
+                
+                // 重置表单
+                addChannelForm.reset();
+                addChannelForm.dataset.mode = 'add';
+                delete addChannelForm.dataset.channelId;
             });
         });
 
@@ -181,21 +91,26 @@ function initializeApp() {
             if (e.target === addChannelModal) addChannelModal.style.display = 'none';
         });
 
-        // 添加渠道按钮
-        document.getElementById('add-channel-btn').addEventListener('click', () => {
-            addChannelModal.style.display = 'block';
-        });
-
-        // 添加渠道表单提交
+        // 表单提交
         addChannelForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const name = document.getElementById('channel-name').value;
             const endpoint = document.getElementById('api-endpoint').value;
             const key = document.getElementById('api-key').value;
-            const model = document.getElementById('api-model').value || 'gpt-3.5-turbo';
+            const models = document.getElementById('api-models').value || 'default-model';
             
-            addApiChannel(name, endpoint, key, model);
+            if (e.target.dataset.mode === 'edit') {
+                // 更新现有渠道
+                const channelId = e.target.dataset.channelId;
+                updateApiChannel(channelId, name, endpoint, key, models);
+            } else {
+                // 添加新渠道
+                addApiChannel(name, endpoint, key, models);
+            }
+            
             addChannelForm.reset();
+            addChannelForm.dataset.mode = 'add';
+            delete addChannelForm.dataset.channelId;
             addChannelModal.style.display = 'none';
         });
 
@@ -203,52 +118,42 @@ function initializeApp() {
         apiChannelSelector.addEventListener('change', () => {
             currentChannelId = apiChannelSelector.value;
             saveCurrentChannel();
+            
+            // 更新模型选择器
+            const selectedChannel = apiChannels.find(c => c.id === currentChannelId);
+            renderModelSelector(selectedChannel);
+            
             checkApiBalance();
         });
-        
+
+        // 模型选择器变化
+        modelSelector.addEventListener('change', () => {
+            const currentConversation = conversations.find(c => c.id === currentConversationId);
+            if (currentConversation) {
+                currentConversation.modelId = modelSelector.value;
+                saveConversations();
+            }
+        });
+
         // 移动端侧边栏控制
         if (showSidebarBtn) {
             showSidebarBtn.addEventListener('click', () => {
                 sidebar.classList.add('active');
             });
         }
-        
+
         if (toggleSidebarBtn) {
             toggleSidebarBtn.addEventListener('click', () => {
                 sidebar.classList.remove('active');
             });
         }
-        
-        // 窗口大小变化时处理
-        window.addEventListener('resize', handleResize);
-    }
 
-    // 根据窗口大小处理UI
-    function handleResize() {
-        if (window.innerWidth > 768) {
-            sidebar.classList.remove('active');
-            sidebar.style.transform = '';
-        }
-    }
-
-    // 生成唯一ID
-    function generateId() {
-        return Date.now().toString(36) + Math.random().toString(36).substr(2);
-    }
-
-    // 保存API渠道
-    function saveApiChannels() {
-        localStorage.setItem('apiChannels', JSON.stringify(apiChannels));
-    }
-
-    // 保存当前渠道
-    function saveCurrentChannel() {
-        localStorage.setItem('currentChannelId', currentChannelId);
-    }
-
-    // 保存对话
-    function saveConversations() {
-        localStorage.setItem('conversations', JSON.stringify(conversations));
+        // 点击聊天区域隐藏侧边栏(移动端)
+        chatMessages.addEventListener('click', () => {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.remove('active');
+            }
+        });
     }
 
     // 加载API渠道
@@ -258,17 +163,75 @@ function initializeApp() {
             apiChannels = JSON.parse(saved);
             renderApiChannelSelector();
             
-            // 设置当前渠道
-            const savedCurrentChannel = localStorage.getItem('currentChannelId');
-            if (savedCurrentChannel && apiChannels.some(c => c.id === savedCurrentChannel)) {
-                currentChannelId = savedCurrentChannel;
+            // 加载上次使用的渠道
+            const lastChannel = localStorage.getItem('currentChannelId');
+            if (lastChannel && apiChannels.some(c => c.id === lastChannel)) {
+                currentChannelId = lastChannel;
                 apiChannelSelector.value = currentChannelId;
+                
+                // 加载该渠道的模型列表
+                const channel = apiChannels.find(c => c.id === currentChannelId);
+                renderModelSelector(channel);
+                
+                checkApiBalance();
             } else if (apiChannels.length > 0) {
                 currentChannelId = apiChannels[0].id;
+                apiChannelSelector.value = currentChannelId;
+                
+                // 加载该渠道的模型列表
+                renderModelSelector(apiChannels[0]);
+                
+                checkApiBalance();
             }
-            
-            checkApiBalance();
         }
+    }
+
+    // 加载对话
+    function loadConversations() {
+        const saved = localStorage.getItem('conversations');
+        if (saved) {
+            conversations = JSON.parse(saved);
+            
+            // 确保所有对话都有channelId和modelId属性
+            conversations.forEach(conversation => {
+                if (!conversation.channelId && apiChannels.length > 0) {
+                    conversation.channelId = apiChannels[0].id;
+                }
+                
+                if (!conversation.modelId && conversation.channelId) {
+                    const channel = apiChannels.find(c => c.id === conversation.channelId);
+                    if (channel && channel.models && channel.models.length > 0) {
+                        conversation.modelId = channel.models[0].id;
+                    }
+                }
+            });
+            
+            renderConversationsList();
+            
+            // 如果已有对话，选择第一个
+            if (conversations.length > 0) {
+                selectConversation(conversations[0].id);
+            } else {
+                createNewConversation();
+            }
+        } else {
+            createNewConversation();
+        }
+    }
+
+    // 保存API渠道
+    function saveApiChannels() {
+        localStorage.setItem('apiChannels', JSON.stringify(apiChannels));
+    }
+
+    // 保存当前选择的渠道
+    function saveCurrentChannel() {
+        localStorage.setItem('currentChannelId', currentChannelId);
+    }
+
+    // 保存对话
+    function saveConversations() {
+        localStorage.setItem('conversations', JSON.stringify(conversations));
     }
 
     // 渲染API渠道选择器
@@ -280,13 +243,363 @@ function initializeApp() {
             option.value = '';
             option.textContent = '请添加API渠道';
             apiChannelSelector.appendChild(option);
-        } else {
-            apiChannels.forEach(channel => {
-                const option = document.createElement('option');
-                option.value = channel.id;
-                option.textContent = channel.name;
-                apiChannelSelector.appendChild(option);
+            return;
+        }
+        
+        apiChannels.forEach(channel => {
+            const option = document.createElement('option');
+            option.value = channel.id;
+            option.textContent = channel.name;
+            apiChannelSelector.appendChild(option);
+        });
+    }
+
+    // 渲染模型选择器
+    function renderModelSelector(channel) {
+        modelSelector.innerHTML = '';
+        
+        if (!channel || !channel.models || channel.models.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '无可用模型';
+            modelSelector.appendChild(option);
+            return;
+        }
+        
+        channel.models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.name;
+            modelSelector.appendChild(option);
+        });
+        
+        // 如果当前对话有设置模型，则选中该模型
+        const currentConversation = conversations.find(c => c.id === currentConversationId);
+        if (currentConversation && currentConversation.modelId) {
+            // 检查所选模型是否在当前渠道的模型列表中
+            const modelExists = channel.models.some(m => m.id === currentConversation.modelId);
+            if (modelExists) {
+                modelSelector.value = currentConversation.modelId;
+            } else if (channel.models.length > 0) {
+                // 否则选择第一个可用模型
+                modelSelector.value = channel.models[0].id;
+                currentConversation.modelId = channel.models[0].id;
+                saveConversations();
+            }
+        } else if (channel.models.length > 0) {
+            // 如果未设置模型，选择第一个
+            modelSelector.value = channel.models[0].id;
+            if (currentConversation) {
+                currentConversation.modelId = channel.models[0].id;
+                saveConversations();
+            }
+        }
+    }
+
+    // 渲染对话列表
+    function renderConversationsList() {
+        const conversationsList = document.querySelector('.conversations-list');
+        conversationsList.innerHTML = '';
+        
+        if (conversations.length === 0) {
+            conversationsList.innerHTML = '<p class="empty-list">没有对话</p>';
+            return;
+        }
+        
+        conversations.forEach(conversation => {
+            const item = document.createElement('div');
+            item.className = 'conversation-item';
+            if (conversation.id === currentConversationId) {
+                item.classList.add('active');
+            }
+            
+            item.innerHTML = `
+                <div class="conversation-title">${escapeHtml(conversation.title || '新对话')}</div>
+                <button class="delete-conversation" data-id="${conversation.id}">
+                    <i class="fas fa-trash"></i>
+                </button>
+            `;
+            
+            item.addEventListener('click', (e) => {
+                if (!e.target.closest('.delete-conversation')) {
+                    selectConversation(conversation.id);
+                }
             });
+            
+            conversationsList.appendChild(item);
+        });
+        
+        // 删除对话
+        document.querySelectorAll('.delete-conversation').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const conversationId = e.currentTarget.dataset.id;
+                deleteConversation(conversationId);
+            });
+        });
+    }
+
+    // 渲染消息
+    function renderMessages(messages) {
+        chatMessages.innerHTML = '';
+        
+        if (messages.length === 0) {
+            return;
+        }
+        
+        let lastRole = null;
+        let messageGroup = null;
+        
+        messages.forEach((message, index) => {
+            // 如果角色变了或者是第一条消息，创建新的消息组
+            if (message.role !== lastRole) {
+                lastRole = message.role;
+                
+                messageGroup = document.createElement('div');
+                messageGroup.className = `message-group ${message.role}`;
+                chatMessages.appendChild(messageGroup);
+            }
+            
+            // 创建消息内容
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content';
+            messageContent.innerHTML = formatMessageContent(message.content);
+            messageGroup.appendChild(messageContent);
+            
+            // 添加时间戳（只给每组最后一条消息添加）
+            if (index === messages.length - 1 || messages[index + 1].role !== message.role) {
+                const messageTime = document.createElement('div');
+                messageTime.className = 'message-time';
+                messageTime.textContent = formatTime(message.timestamp);
+                messageGroup.appendChild(messageTime);
+            }
+        });
+        
+        // 滚动到底部
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        // 更新统计
+        updateStats(messages);
+    }
+
+    // 添加API渠道
+    function addApiChannel(name, endpoint, key, models) {
+        // 将模型列表转换为数组对象
+        const modelsList = models.split('\n')
+            .map(model => model.trim())
+            .filter(model => model !== '')
+            .map(model => ({
+                id: generateId(),
+                name: model
+            }));
+        
+        // 如果没有提供模型，添加一个默认值
+        if (modelsList.length === 0) {
+            modelsList.push({
+                id: generateId(),
+                name: 'default-model'
+            });
+        }
+        
+        const newChannel = {
+            id: generateId(),
+            name,
+            endpoint,
+            key,
+            models: modelsList
+        };
+        
+        apiChannels.push(newChannel);
+        saveApiChannels();
+        renderApiChannelSelector();
+        
+        // 设置为当前渠道
+        currentChannelId = newChannel.id;
+        apiChannelSelector.value = currentChannelId;
+        saveCurrentChannel();
+        
+        // 更新模型选择器
+        renderModelSelector(newChannel);
+        
+        checkApiBalance();
+    }
+
+    // 更新API渠道
+    function updateApiChannel(channelId, name, endpoint, key, models) {
+        const channelIndex = apiChannels.findIndex(c => c.id === channelId);
+        if (channelIndex === -1) return;
+        
+        // 将模型列表转换为数组对象
+        const modelsList = models.split('\n')
+            .map(model => model.trim())
+            .filter(model => model !== '')
+            .map(model => {
+                // 尝试保留现有模型的ID
+                const existingModel = apiChannels[channelIndex].models.find(m => m.name === model);
+                return existingModel || {
+                    id: generateId(),
+                    name: model
+                };
+            });
+        
+        // 如果没有提供模型，添加一个默认值
+        if (modelsList.length === 0) {
+            modelsList.push({
+                id: generateId(),
+                name: 'default-model'
+            });
+        }
+        
+        // 更新渠道
+        apiChannels[channelIndex] = {
+            ...apiChannels[channelIndex],
+            name,
+            endpoint,
+            key,
+            models: modelsList
+        };
+        
+        saveApiChannels();
+        renderApiChannelSelector();
+        
+        // 如果是当前选择的渠道，更新模型选择器
+        if (currentChannelId === channelId) {
+            apiChannelSelector.value = currentChannelId;
+            renderModelSelector(apiChannels[channelIndex]);
+        }
+        
+        checkApiBalance();
+    }
+
+    // 编辑API渠道
+    function editChannel(channelId) {
+        const channel = apiChannels.find(c => c.id === channelId);
+        if (!channel) return;
+        
+        // 将现有模型列表转换为文本格式
+        const modelsText = channel.models.map(m => m.name).join('\n');
+        
+        // 填充表单
+        document.getElementById('channel-name').value = channel.name;
+        document.getElementById('api-endpoint').value = channel.endpoint;
+        document.getElementById('api-key').value = channel.key;
+        document.getElementById('api-models').value = modelsText;
+        
+        // 修改提交处理以更新而非添加
+        const form = document.getElementById('add-channel-form');
+        form.dataset.mode = 'edit';
+        form.dataset.channelId = channelId;
+        
+        // 显示模态框
+        document.getElementById('add-channel-modal').style.display = 'block';
+    }
+
+    // 删除API渠道
+        // 删除API渠道
+    function deleteChannel(channelId) {
+        if (!confirm('确定要删除此API渠道吗？')) return;
+        
+        const index = apiChannels.findIndex(c => c.id === channelId);
+        if (index === -1) return;
+        
+        apiChannels.splice(index, 1);
+        saveApiChannels();
+        
+        // 如果删除的是当前渠道，选择第一个可用渠道
+        if (currentChannelId === channelId) {
+            if (apiChannels.length > 0) {
+                currentChannelId = apiChannels[0].id;
+                apiChannelSelector.value = currentChannelId;
+                renderModelSelector(apiChannels[0]);
+            } else {
+                currentChannelId = null;
+                apiChannelSelector.innerHTML = '<option value="">请添加API渠道</option>';
+                modelSelector.innerHTML = '<option value="">无可用模型</option>';
+            }
+            saveCurrentChannel();
+        }
+        
+        renderChannelsList();
+    }
+
+    // 渲染API渠道选择器
+    function renderApiChannelSelector() {
+        apiChannelSelector.innerHTML = '';
+        
+        if (apiChannels.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '请添加API渠道';
+            apiChannelSelector.appendChild(option);
+            return;
+        }
+        
+        apiChannels.forEach(channel => {
+            const option = document.createElement('option');
+            option.value = channel.id;
+            option.textContent = channel.name;
+            apiChannelSelector.appendChild(option);
+        });
+        
+        // 如果有保存的当前渠道，则选择它
+        const savedChannel = localStorage.getItem('currentChannelId');
+        if (savedChannel && apiChannels.some(c => c.id === savedChannel)) {
+            currentChannelId = savedChannel;
+            apiChannelSelector.value = currentChannelId;
+        } else if (apiChannels.length > 0) {
+            // 否则选择第一个渠道
+            currentChannelId = apiChannels[0].id;
+            apiChannelSelector.value = currentChannelId;
+        }
+        
+        // 渲染模型选择器
+        if (currentChannelId) {
+            const channel = apiChannels.find(c => c.id === currentChannelId);
+            if (channel) {
+                renderModelSelector(channel);
+            }
+        }
+    }
+
+    // 渲染模型选择器
+    function renderModelSelector(channel) {
+        modelSelector.innerHTML = '';
+        
+        if (!channel || !channel.models || channel.models.length === 0) {
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = '无可用模型';
+            modelSelector.appendChild(option);
+            return;
+        }
+        
+        channel.models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.name;
+            modelSelector.appendChild(option);
+        });
+        
+        // 如果当前对话有设置模型，则选中该模型
+        const currentConversation = conversations.find(c => c.id === currentConversationId);
+        if (currentConversation && currentConversation.modelId) {
+            // 检查所选模型是否在当前渠道的模型列表中
+            const modelExists = channel.models.some(m => m.id === currentConversation.modelId);
+            if (modelExists) {
+                modelSelector.value = currentConversation.modelId;
+            } else if (channel.models.length > 0) {
+                // 否则选择第一个可用模型
+                modelSelector.value = channel.models[0].id;
+                currentConversation.modelId = channel.models[0].id;
+                saveConversations();
+            }
+        } else if (channel.models.length > 0) {
+            // 如果未设置模型，选择第一个
+            modelSelector.value = channel.models[0].id;
+            if (currentConversation) {
+                currentConversation.modelId = channel.models[0].id;
+                saveConversations();
+            }
         }
     }
 
@@ -301,12 +614,15 @@ function initializeApp() {
         }
         
         apiChannels.forEach(channel => {
+            const modelNames = channel.models.map(m => m.name).join(', ');
+            
             const channelItem = document.createElement('div');
             channelItem.className = 'channel-item';
             channelItem.innerHTML = `
                 <div class="channel-info">
                     <div class="channel-name">${escapeHtml(channel.name)}</div>
                     <div class="channel-endpoint">${escapeHtml(channel.endpoint)}</div>
+                    <div class="channel-models">模型: ${escapeHtml(modelNames)}</div>
                 </div>
                 <div class="channel-actions">
                     <button class="edit-channel" data-id="${channel.id}"><i class="fas fa-edit"></i></button>
@@ -319,6 +635,7 @@ function initializeApp() {
         // 添加编辑和删除事件
         document.querySelectorAll('.edit-channel').forEach(btn => {
             btn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const channelId = e.currentTarget.dataset.id;
                 editChannel(channelId);
             });
@@ -326,346 +643,261 @@ function initializeApp() {
         
         document.querySelectorAll('.delete-channel').forEach(btn => {
             btn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 const channelId = e.currentTarget.dataset.id;
                 deleteChannel(channelId);
             });
         });
     }
 
-    // HTML转义
-    function escapeHtml(text) {
-        const map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return text.replace(/[&<>"']/g, m => map[m]);
-    }
-
-    // 添加API渠道
-    function addApiChannel(name, endpoint, key, model) {
-        const newChannel = {
-            id: generateId(),
-            name,
-            endpoint,
-            key,
-            model
-        };
-        
-        apiChannels.push(newChannel);
-        saveApiChannels();
-        renderApiChannelSelector();
-        renderChannelsList();
-        
-        // 如果是第一个渠道，设为当前渠道
-        if (apiChannels.length === 1) {
-            currentChannelId = newChannel.id;
-            apiChannelSelector.value = currentChannelId;
-            saveCurrentChannel();
-            checkApiBalance();
-        }
-    }
-
-    // 编辑渠道
-    function editChannel(channelId) {
-        const channel = apiChannels.find(c => c.id === channelId);
-        if (!channel) return;
-        
-        // 这里可以实现编辑渠道的逻辑，类似添加渠道的弹窗
-        // 简化起见，这里直接用prompt
-        const name = prompt('渠道名称', channel.name);
-        if (!name) return;
-        
-        const endpoint = prompt('API接入点', channel.endpoint);
-        if (!endpoint) return;
-        
-        const key = prompt('API密钥 (留空保持不变)', '');
-        const model = prompt('模型名称', channel.model);
-        
-        channel.name = name;
-        channel.endpoint = endpoint;
-        if (key) channel.key = key;
-        if (model) channel.model = model;
-        
-        saveApiChannels();
-        renderApiChannelSelector();
-        renderChannelsList();
-        
-        if (currentChannelId === channelId) {
-            apiChannelSelector.value = channelId;
-            checkApiBalance();
-        }
-    }
-
-    // 删除渠道
-    function deleteChannel(channelId) {
-        if (!confirm('确定要删除这个API渠道吗？')) return;
-        
-        const index = apiChannels.findIndex(c => c.id === channelId);
-        if (index === -1) return;
-        
-        apiChannels.splice(index, 1);
-        saveApiChannels();
-        renderApiChannelSelector();
-        renderChannelsList();
-        
-        // 如果删除的是当前渠道，重新设置当前渠道
-        if (currentChannelId === channelId) {
-            currentChannelId = apiChannels.length > 0 ? apiChannels[0].id : null;
-            if (currentChannelId) {
-                apiChannelSelector.value = currentChannelId;
-            }
-            saveCurrentChannel();
-            checkApiBalance();
-        }
-    }
-
     // 检查API余额
     async function checkApiBalance() {
         if (!currentChannelId) {
-            apiBalance.textContent = '余额: 无可用渠道';
+            apiBalance.textContent = '余额: 未设置API';
             return;
         }
         
         const channel = apiChannels.find(c => c.id === currentChannelId);
-        if (!channel) return;
+        if (!channel) {
+            apiBalance.textContent = '余额: 未找到渠道';
+            return;
+        }
         
         apiBalance.textContent = '余额: 查询中...';
         
         try {
-            // 这里实现查询API余额的逻辑
-            // 由于不同API提供商的余额查询方式不同，这里只是模拟
-            const response = await simulateBalanceCheck(channel);
-            apiBalance.textContent = `余额: $${response.balance.toFixed(2)}`;
-        } catch (error) {
-            apiBalance.textContent = '余额: 查询失败';
-            console.error('查询余额失败:', error);
-        }
-    }
-
-    // 模拟余额查询
-    async function simulateBalanceCheck(channel) {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve({ balance: Math.random() * 100 });
-            }, 1000);
-        });
-    }
-
-    // 加载对话历史
-    function loadConversations() {
-        const saved = localStorage.getItem('conversations');
-        if (saved) {
-            conversations = JSON.parse(saved);
-            renderConversationsList();
-            
-            // 加载最后一个对话
-            const savedCurrentId = localStorage.getItem('currentConversationId');
-            if (savedCurrentId && conversations.some(c => c.id === savedCurrentId)) {
-                loadConversation(savedCurrentId);
-            } else if (conversations.length > 0) {
-                loadConversation(conversations[0].id);
-            } else {
-                createNewConversation();
-            }
-        } else {
-            createNewConversation();
-        }
-    }
-
-    // 渲染对话列表
-    function renderConversationsList() {
-        const conversationsList = document.querySelector('.conversations-list');
-        conversationsList.innerHTML = '';
-        
-        conversations.forEach(conversation => {
-            const item = document.createElement('div');
-            item.className = 'conversation-item';
-            if (conversation.id === currentConversationId) {
-                item.classList.add('active');
-            }
-            item.textContent = conversation.title || '新对话';
-            item.dataset.id = conversation.id;
-            item.addEventListener('click', () => {
-                loadConversation(conversation.id);
-                // 在移动设备上，点击对话后关闭侧边栏
-                if (window.innerWidth <= 768) {
-                    sidebar.classList.remove('active');
+            if (channel.endpoint.includes('openai.com')) {
+                // OpenAI API
+                const response = await fetch('https://api.openai.com/dashboard/billing/credit_grants', {
+                    headers: {
+                        'Authorization': `Bearer ${channel.key}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const balance = data.total_available.toFixed(2);
+                    apiBalance.textContent = `余额: $${balance}`;
+                } else {
+                    apiBalance.textContent = '余额: 查询失败';
                 }
-            });
-            conversationsList.appendChild(item);
-        });
-    }
-
-    // 创建新对话
-    function createNewConversation() {
-        const newConversation = {
-            id: generateId(),
-            title: '新对话',
-            messages: [],
-            channelId: currentChannelId,
-            createdAt: new Date().toISOString()
-        };
-        
-        conversations.unshift(newConversation);
-        saveConversations();
-        loadConversation(newConversation.id);
-        renderConversationsList();
-        
-        // 在移动设备上，创建新对话后关闭侧边栏
-        if (window.innerWidth <= 768) {
-            sidebar.classList.remove('active');
+            } else {
+                // 其他API，显示暂不支持
+                apiBalance.textContent = '余额: 不支持查询';
+            }
+        } catch (error) {
+            console.error('查询余额失败:', error);
+            apiBalance.textContent = '余额: 查询失败';
         }
     }
 
-    // 加载对话
-    function loadConversation(conversationId) {
-        const conversation = conversations.find(c => c.id === conversationId);
-        if (!conversation) return;
+    // 发送消息
+    async function sendMessage() {
+        const text = messageInput.value.trim();
+        if (!text || isStreaming) return;
         
-        currentConversationId = conversationId;
-        localStorage.setItem('currentConversationId', conversationId);
-        
-        // 如果对话有关联的渠道，切换到该渠道
-        if (conversation.channelId && apiChannels.some(c => c.id === conversation.channelId)) {
-            currentChannelId = conversation.channelId;
-            apiChannelSelector.value = currentChannelId;
-            saveCurrentChannel();
-            checkApiBalance();
-        }
-        
-        renderMessages(conversation.messages);
-        renderConversationsList();
-        
-        // 更新统计数据
-        updateStats(conversation.messages);
-    }
-
-    // 渲染消息
-    function renderMessages(messages) {
-        chatMessages.innerHTML = '';
-        
-        if (messages.length === 0) {
+        if (!currentChannelId) {
+            alert('请先添加并选择API渠道');
             return;
         }
         
-        let currentRole = null;
-        let messageGroup = null;
-        
-        messages.forEach((message, index) => {
-            // 如果角色变化或是第一条消息，创建新的消息组
-            if (message.role !== currentRole) {
-                currentRole = message.role;
-                messageGroup = document.createElement('div');
-                messageGroup.className = `message-group ${message.role}`;
-                
-                const header = document.createElement('div');
-                header.className = `message-header ${message.role}`;
-                
-                const avatar = document.createElement('div');
-                avatar.className = 'avatar';
-                avatar.textContent = message.role === 'user' ? '我' : 'AI';
-                
-                const name = document.createElement('span');
-                name.textContent = message.role === 'user' ? '我' : '助手';
-                
-                header.appendChild(avatar);
-                header.appendChild(name);
-                messageGroup.appendChild(header);
-                
-                chatMessages.appendChild(messageGroup);
-            }
-            
-            // 添加消息内容到当前组
-            const content = document.createElement('div');
-            content.className = 'message-content';
-            content.innerHTML = formatMessage(message.content);
-            messageGroup.appendChild(content);
-            
-            // 如果是最后一条消息或下一条消息角色不同，添加时间
-            if (index === messages.length - 1 || messages[index + 1].role !== message.role) {
-                const time = document.createElement('div');
-                time.className = 'message-time';
-                time.textContent = formatTime(message.timestamp);
-                messageGroup.appendChild(time);
-            }
-        });
-        
-        // 滚动到底部
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    // 格式化消息内容，支持简单的markdown
-    function formatMessage(content) {
-        if (!content) return '';
-        
-        // 如果内容已经包含HTML标签，直接返回
-        if (/<[a-z][\s\S]*>/i.test(content)) {
-            return content;
+        const channel = apiChannels.find(c => c.id === currentChannelId);
+        if (!channel) {
+            alert('所选API渠道不可用');
+            return;
         }
         
-        // 转义HTML
-        let formatted = escapeHtml(content);
+        // 获取选择的模型
+        const conversation = conversations.find(c => c.id === currentConversationId);
+        if (!conversation) return;
         
-        // 简单的markdown支持（粗体、斜体、代码）
-        formatted = formatted
-            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-            .replace(/\*(.*?)\*/g, '<em>$1</em>')
-            .replace(/`(.*?)`/g, '<code>$1</code>')
-            .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+        // 添加用户消息
+        const userMessage = {
+            role: 'user',
+            content: text,
+            timestamp: Date.now(),
+            tokens: estimateTokens(text)
+        };
         
-        // 将换行符转换为<br>
-        formatted = formatted.replace(/\n/g, '<br>');
+        conversation.messages.push(userMessage);
+        updateUserStats(userMessage);
         
-        return formatted;
-    }
-
-    // 格式化时间
-    function formatTime(timestamp) {
-        if (!timestamp) return '';
+        // 添加助手消息（初始显示为"思考中..."）
+        const assistantMessage = {
+            role: 'assistant',
+            content: '思考中...',
+            timestamp: Date.now(),
+            tokens: 0
+        };
         
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
+        conversation.messages.push(assistantMessage);
         
-        if (diffDays === 0) {
-            // 今天，显示时:分
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } else if (diffDays < 7) {
-            // 一周内，显示星期几 时:分
-            const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-            return days[date.getDay()] + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } else {
-            // 一周以上，显示年-月-日 时:分
-            return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        // 更新UI
+        renderMessages(conversation.messages);
+        saveConversations();
+        
+        // 清空输入框并重置高度
+        messageInput.value = '';
+        messageInput.style.height = 'auto';
+        
+        // 构建API请求的消息历史
+        const messages = conversation.messages
+            .filter(m => m.role === 'user' || (m.role === 'assistant' && m.content !== '思考中...'))
+            .map(m => ({
+                role: m.role,
+                content: m.content
+            }));
+        
+        // 调用API
+        isStreaming = true;
+        startTime = Date.now();
+        
+        try {
+            // 调用API获取回复
+            const response = await callOpenAI(channel, messages);
+            
+            // 更新助手消息
+            assistantMessage.content = response.content;
+            assistantMessage.tokens = response.tokens;
+            assistantMessage.timestamp = Date.now();
+            
+            // 计算耗时
+            const endTime = Date.now();
+            const timeElapsed = endTime - startTime;
+            updateTimeStats(timeElapsed);
+            
+            // 更新统计
+            updateAssistantStats(assistantMessage);
+            
+            // 保存对话
+            saveConversations();
+            
+            // 更新对话标题（如果是第一条消息）
+            if (conversation.messages.length === 2) {
+                updateConversationTitle(conversation);
+            }
+        } catch (error) {
+            console.error('API调用错误:', error);
+            assistantMessage.content = `发生错误: ${error.message}`;
+            renderMessages(conversation.messages);
+            saveConversations();
+        } finally {
+            isStreaming = false;
         }
     }
 
-    // 调用OpenAI API (模拟)
+    // 调用OpenAI API (或兼容的API)
     async function callOpenAI(channel, messages) {
-        return new Promise((resolve, reject) => {
-            // 在实际应用中，应该使用fetch或axios调用真实API
-            // 模拟API调用延迟
-            const delay = Math.random() * 2000 + 1000;
-            const tokens = Math.floor(Math.random() * 300 + 100);
+        // 获取当前对话和模型信息
+        const conversation = conversations.find(c => c.id === currentConversationId);
+        const assistantMessage = conversation.messages[conversation.messages.length - 1];
+        
+        // 获取选择的模型
+        const modelId = conversation.modelId;
+        const modelObj = channel.models.find(m => m.id === modelId);
+        const model = modelObj ? modelObj.name : channel.models[0].name;
+        
+        try {
+            // 准备通用API请求头
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${channel.key}`
+            };
             
-            setTimeout(() => {
-                if (Math.random() > 0.95) {  // 5%概率模拟错误
-                    reject(new Error('API调用失败'));
-                } else {
-                    resolve({
-                        content: `这是一个模拟的API响应。你发送的消息是: "${messages[messages.length - 1].content}"
-
-该消息大约包含 ${estimateTokens(messages[messages.length - 1].content)} 个tokens。
-
-在实际实现中，这里将连接到OpenAI或其他兼容的API，并支持流式输出响应。`,
-                        tokens: tokens
-                    });
+            // 准备请求体
+            const requestBody = {
+                model: model,
+                messages: messages,
+                stream: true
+            };
+            
+            // 发送请求
+            const response = await fetch(channel.endpoint, {
+                method: 'POST',
+                headers: headers,
+                body: JSON.stringify(requestBody)
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error?.message || `API请求失败，状态码: ${response.status}`);
+            }
+            
+            // 处理流式响应
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let content = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                const chunk = decoder.decode(value);
+                // 处理不同的流格式
+                const lines = chunk.split('\n').filter(line => line.trim() !== '');
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        const data = line.slice(6);
+                        if (data === '[DONE]') continue;
+                        
+                        try {
+                            const json = JSON.parse(data);
+                            // 支持不同的响应格式
+                            let delta = '';
+                            
+                            // OpenAI格式
+                            if (json.choices && json.choices[0]?.delta?.content) {
+                                delta = json.choices[0].delta.content;
+                            } 
+                            // 通用格式
+                            else if (json.output || json.result || json.text || json.content) {
+                                delta = json.output || json.result || json.text || json.content;
+                            }
+                            
+                            if (delta) {
+                                content += delta;
+                                // 实时更新UI
+                                assistantMessage.content = content;
+                                renderMessages(conversation.messages);
+                                saveConversations();
+                            }
+                        } catch (e) {
+                            console.error('解析流数据失败:', e);
+                        }
+                    }
                 }
-            }, delay);
-        });
+            }
+            
+            // 估算tokens
+            const tokens = estimateTokens(content);
+            
+            return {
+                content: content,
+                tokens: tokens
+            };
+        } catch (error) {
+            console.error('API调用出错:', error);
+            throw error;
+        }
+    }
+
+    // 更新对话标题
+    function updateConversationTitle(conversation) {
+        // 使用第一条用户消息作为标题
+        if (conversation.messages.length > 0) {
+            const firstMessage = conversation.messages.find(m => m.role === 'user');
+            if (firstMessage) {
+                // 截取前20个字符作为标题
+                let title = firstMessage.content.trim().substring(0, 20);
+                if (firstMessage.content.length > 20) {
+                    title += '...';
+                }
+                conversation.title = title;
+                saveConversations();
+                renderConversationsList();
+            }
+        }
     }
 
     // 更新统计信息
@@ -706,6 +938,230 @@ function initializeApp() {
     // 更新时间统计
     function updateTimeStats(time) {
         timeStats.textContent = `耗时: ${(time / 1000).toFixed(2)}s`;
+    }
+
+    // 加载对话
+    function loadConversations() {
+        const saved = localStorage.getItem('conversations');
+        if (saved) {
+            conversations = JSON.parse(saved);
+            
+            // 确保所有对话都有channelId和modelId属性
+            conversations.forEach(conversation => {
+                if (!conversation.channelId && apiChannels.length > 0) {
+                    conversation.channelId = apiChannels[0].id;
+                }
+                
+                if (!conversation.modelId && conversation.channelId) {
+                    const channel = apiChannels.find(c => c.id === conversation.channelId);
+                    if (channel && channel.models && channel.models.length > 0) {
+                        conversation.modelId = channel.models[0].id;
+                    }
+                }
+            });
+            
+            renderConversationsList();
+            
+            // 如果已有对话，选择第一个
+            if (conversations.length > 0) {
+                selectConversation(conversations[0].id);
+            } else {
+                createNewConversation();
+            }
+        } else {
+            createNewConversation();
+        }
+    }
+
+    // 创建新对话
+    function createNewConversation() {
+        // 确保有API渠道可用
+        if (apiChannels.length === 0) {
+            alert('请先添加API渠道');
+            return;
+        }
+        
+        // 获取当前选择的API渠道
+        if (!currentChannelId) {
+            currentChannelId = apiChannels[0].id;
+            apiChannelSelector.value = currentChannelId;
+            saveCurrentChannel();
+        }
+        
+        // 获取当前渠道的第一个模型
+        const channel = apiChannels.find(c => c.id === currentChannelId);
+        let modelId = null;
+        if (channel && channel.models && channel.models.length > 0) {
+            modelId = channel.models[0].id;
+        }
+        
+        // 创建新对话
+        const newConversation = {
+            id: generateId(),
+            title: '新对话',
+            channelId: currentChannelId,
+            modelId: modelId,
+            messages: []
+        };
+        
+        conversations.unshift(newConversation);
+        saveConversations();
+        
+        // 选择新对话
+        selectConversation(newConversation.id);
+        
+        // 聚焦输入框
+        messageInput.focus();
+    }
+
+    // 选择对话
+    function selectConversation(conversationId) {
+        currentConversationId = conversationId;
+        const conversation = conversations.find(c => c.id === conversationId);
+        
+        // 高亮当前对话
+        document.querySelectorAll('.conversation-item').forEach(item => {
+            if (item.dataset.id === conversationId) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+        
+        // 渲染消息
+        if (conversation) {
+            renderMessages(conversation.messages);
+            
+            // 如果对话指定了渠道，则切换到该渠道
+            if (conversation.channelId) {
+                const channelExists = apiChannels.some(c => c.id === conversation.channelId);
+                if (channelExists) {
+                    currentChannelId = conversation.channelId;
+                    apiChannelSelector.value = currentChannelId;
+                    
+                    // 更新模型选择器
+                    const channel = apiChannels.find(c => c.id === currentChannelId);
+                    renderModelSelector(channel);
+                }
+            }
+        } else {
+            chatMessages.innerHTML = '';
+        }
+        
+        // 隐藏移动端侧边栏
+        if (window.innerWidth <= 768) {
+            sidebar.classList.remove('active');
+        }
+        
+        // 保存当前对话ID
+        localStorage.setItem('currentConversationId', currentConversationId);
+    }
+
+    // 删除对话
+    function deleteConversation(conversationId) {
+        if (!confirm('确定要删除此对话吗？')) return;
+        
+        const index = conversations.findIndex(c => c.id === conversationId);
+        if (index === -1) return;
+        
+        conversations.splice(index, 1);
+        saveConversations();
+        
+        // 如果删除的是当前对话，选择另一个
+        if (currentConversationId === conversationId) {
+            if (conversations.length > 0) {
+                selectConversation(conversations[0].id);
+            } else {
+                createNewConversation();
+            }
+        } else {
+            renderConversationsList();
+        }
+    }
+
+    // 保存对话
+    function saveConversations() {
+        localStorage.setItem('conversations', JSON.stringify(conversations));
+    }
+
+    // 保存API渠道
+    function saveApiChannels() {
+        localStorage.setItem('apiChannels', JSON.stringify(apiChannels));
+    }
+
+    // 保存当前渠道
+    function saveCurrentChannel() {
+        localStorage.setItem('currentChannelId', currentChannelId);
+    }
+
+    // 生成唯一ID
+    function generateId() {
+        return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    }
+
+    // 格式化时间
+    function formatTime(timestamp) {
+        if (!timestamp) return '';
+        
+        const date = new Date(timestamp);
+        const today = new Date();
+        const isToday = date.getDate() === today.getDate() && 
+                         date.getMonth() === today.getMonth() && 
+                         date.getFullYear() === today.getFullYear();
+        
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        
+        if (isToday) {
+            return `今天 ${hours}:${minutes}`;
+        } else {
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            return `${month}-${day} ${hours}:${minutes}`;
+        }
+    }
+
+    // 格式化消息内容（支持Markdown）
+    function formatMessageContent(content) {
+        if (!content) return '';
+        
+        // 简单的Markdown解析
+        let formatted = escapeHtml(content);
+        
+        // 代码块
+        formatted = formatted.replace(/```(.+?)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>');
+        formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+        
+        // 内联代码
+        formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+        
+        // 粗体
+        formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+        
+        // 斜体
+        formatted = formatted.replace(/\*(.+?)\*/g, '<em>$1</em>');
+        
+        // 链接
+        formatted = formatted.replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank">$1</a>');
+        
+        // 换行
+        formatted = formatted.replace(/\n/g, '<br>');
+        
+        return formatted;
+    }
+
+    // HTML转义
+    function escapeHtml(text) {
+        if (!text) return '';
+        
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
     }
 
     // 估算tokens数量 (粗略估计)
