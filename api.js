@@ -1,116 +1,128 @@
-// api.js - 处理API相关功能
-
 /**
- * 调用AI API
- * @param {Object} channel - API渠道信息
- * @param {Array} messages - 对话消息数组
- * @param {Object} assistantMessage - 助手消息对象，用于更新内容
- * @returns {Promise<Object>} - 返回包含内容和tokens的对象
+ * API通信功能
  */
-async function callAIAPI(channel, messages, assistantMessage) {
-    // 获取选中的模型
-    const conversation = conversations.find(c => c.id === currentConversationId);
+
+// 调用AI API获取响应
+async function callAIAPI(channel, conversation, userMessage) {
+    if (!channel || !conversation) {
+        throw new Error('无效的API渠道或对话');
+    }
+    
+    // 获取当前模型
     const modelId = conversation.modelId;
-    const modelObj = channel.models.find(m => m.id === modelId);
-    const model = modelObj ? modelObj.name : channel.models[0].name;
+    const model = channel.models.find(m => m.id === modelId);
+    const modelName = model ? model.name : channel.models[0].name;
+    
+    // 创建消息数组
+    const messages = conversation.messages.map(m => ({
+        role: m.role,
+        content: m.content
+    }));
     
     try {
-        // 准备通用API请求头
+        // 准备请求头
         const headers = {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${channel.key}`
+            'Content-Type': 'application/json'
         };
         
-        // 根据不同API调整请求结构
-        let endpoint = channel.endpoint;
+        // 根据不同API设置不同的认证方式
+        if (channel.endpoint.includes('anthropic.com')) {
+            headers['x-api-key'] = channel.key;
+        } else {
+            headers['Authorization'] = `Bearer ${channel.key}`;
+        }
+        
+        // 准备请求体
         let requestBody = {
-            model: model,
+            model: modelName,
             messages: messages,
             stream: true
         };
         
-        // 特殊API处理
+        // Anthropic Claude API特殊处理
         if (channel.endpoint.includes('anthropic.com')) {
-            // Anthropic Claude API
-            headers['x-api-key'] = channel.key;
-            delete headers['Authorization'];
-            
-            // 调整消息格式
-            const claudeMessages = messages.map(m => ({
-                role: m.role === 'assistant' ? 'assistant' : 'user',
-                content: m.content
-            }));
-            
             requestBody = {
-                model: model,
-                messages: claudeMessages,
+                model: modelName,
+                messages: messages.map(m => ({
+                    role: m.role === 'assistant' ? 'assistant' : 'user',
+                    content: m.content
+                })),
                 stream: true
             };
         }
         
         // 发送请求
-        const response = await fetch(endpoint, {
+        const response = await fetch(channel.endpoint, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify(requestBody)
         });
         
         if (!response.ok) {
-            // 尝试获取错误信息
-            const errorText = await response.text();
-            let errorMsg = `API请求失败，状态码: ${response.status}`;
+            let errorMessage = `API请求失败 (${response.status})`;
             try {
-                const errorData = JSON.parse(errorText);
-                errorMsg = errorData.error?.message || errorData.error || errorMsg;
+                const errorData = await response.json();
+                errorMessage = errorData.error?.message || errorData.error || errorMessage;
             } catch (e) {
-                // 如果不是JSON格式，使用原始错误文本
-                errorMsg = errorText || errorMsg;
+                // 如果解析JSON失败，使用响应文本
+                const text = await response.text();
+                errorMessage = text || errorMessage;
             }
-            throw new Error(errorMsg);
+            throw new Error(errorMessage);
         }
         
-        // 处理流式响应
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder('utf-8');
-        let content = '';
-        
+        return response;
+    } catch (error) {
+        console.error('API调用出错:', error);
+        throw error;
+    }
+}
+
+// 处理流式响应
+async function handleStreamResponse(response, onData, onComplete) {
+    if (!response.body) {
+        throw new Error('响应没有数据流');
+    }
+    
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let completeText = '';
+    
+    try {
         while (true) {
             const { done, value } = await reader.read();
             if (done) break;
             
-            const chunk = decoder.decode(value);
-            // 处理不同的流格式
+            const chunk = decoder.decode(value, { stream: true });
             const lines = chunk.split('\n').filter(line => line.trim() !== '');
             
             for (const line of lines) {
                 if (line.startsWith('data: ')) {
                     const data = line.slice(6);
+                    
+                    // 检查流是否结束
                     if (data === '[DONE]') continue;
                     
                     try {
                         const json = JSON.parse(data);
-                        // 支持不同的响应格式
-                        let delta = '';
+                        let textDelta = '';
                         
                         // OpenAI格式
                         if (json.choices && json.choices[0]?.delta?.content) {
-                            delta = json.choices[0].delta.content;
+                            textDelta = json.choices[0].delta.content;
                         } 
                         // Anthropic Claude格式
                         else if (json.type === 'content_block_delta' && json.delta?.text) {
-                            delta = json.delta.text;
+                            textDelta = json.delta.text;
                         }
                         // 通用格式
                         else if (json.output || json.result || json.text || json.content) {
-                            delta = json.output || json.result || json.text || json.content;
+                            textDelta = json.output || json.result || json.text || json.content;
                         }
                         
-                        if (delta) {
-                            content += delta;
-                            // 实时更新UI和对话
-                            assistantMessage.content = content;
-                            renderMessages(conversation.messages);
-                            saveConversations();
+                        if (textDelta) {
+                            completeText += textDelta;
+                            onData(textDelta, completeText);
                         }
                     } catch (e) {
                         console.error('解析流数据失败:', e);
@@ -119,35 +131,18 @@ async function callAIAPI(channel, messages, assistantMessage) {
             }
         }
         
-        // 估算tokens
-        const tokens = estimateTokens(content);
-        
-        return {
-            content: content,
-            tokens: tokens
-        };
+        // 流处理完成后回调
+        onComplete(completeText);
+        return completeText;
     } catch (error) {
-        console.error('API调用出错:', error);
+        console.error('处理流数据出错:', error);
         throw error;
     }
 }
 
-/**
- * 检查API余额
- */
-async function checkApiBalance() {
-    if (!currentChannelId) {
-        apiBalance.textContent = '余额: 未设置API';
-        return;
-    }
-    
-    const channel = apiChannels.find(c => c.id === currentChannelId);
-    if (!channel) {
-        apiBalance.textContent = '余额: 未找到渠道';
-        return;
-    }
-    
-    apiBalance.textContent = '余额: 查询中...';
+// 检查API余额
+async function checkApiBalance(channel) {
+    if (!channel) return '未设置API';
     
     try {
         if (channel.endpoint.includes('openai.com')) {
@@ -160,33 +155,28 @@ async function checkApiBalance() {
             
             if (response.ok) {
                 const data = await response.json();
-                const balance = data.total_available.toFixed(2);
-                apiBalance.textContent = `余额: $${balance}`;
+                return `$${data.total_available.toFixed(2)}`;
             } else {
-                apiBalance.textContent = '余额: 查询失败';
+                return '查询失败';
             }
         } else if (channel.endpoint.includes('anthropic.com')) {
-            // Anthropic API (可能不支持余额查询)
-            apiBalance.textContent = '余额: 不支持查询';
+            // Anthropic API
+            return '不支持查询';
         } else {
-            // 其他API，显示暂不支持
-            apiBalance.textContent = '余额: 不支持查询';
+            // 其他API
+            return '不支持查询';
         }
     } catch (error) {
         console.error('查询余额失败:', error);
-        apiBalance.textContent = '余额: 查询失败';
+        return '查询失败';
     }
 }
 
-/**
- * 估算tokens数量 (粗略估计)
- * @param {string} text - 输入文本
- * @returns {number} - 估算的token数量
- */
+// 估算tokens数量
 function estimateTokens(text) {
     if (!text) return 0;
     
-    // 粗略估计，英文约4字符/token，中文约2字符/token
+    // 粗略估算: 英文约4字符/token，中文约2字符/token
     const englishChars = text.replace(/[\u4e00-\u9fa5]/g, '').length;
     const chineseChars = text.length - englishChars;
     return Math.ceil(englishChars / 4 + chineseChars / 2);

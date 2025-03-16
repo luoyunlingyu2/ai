@@ -13,128 +13,162 @@
         <!-- 侧边栏 -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h2><i class="fas fa-robot"></i> AI聊天助手</h2>
+                <div class="app-title">
+                    <i class="fas fa-robot"></i>
+                    <h2>AI聊天助手</h2>
+                </div>
                 <button id="new-chat-btn" class="primary-btn"><i class="fas fa-plus"></i> 新对话</button>
             </div>
             
-            <div class="conversations-list" id="conversations-list">
+            <div id="conversations-list" class="conversations-list">
                 <!-- 历史对话将在这里动态生成 -->
+                <div class="empty-list">无历史对话</div>
             </div>
             
             <div class="sidebar-footer">
                 <button id="settings-btn" class="icon-btn"><i class="fas fa-cog"></i> API设置</button>
-                <button id="toggle-theme-btn" class="icon-btn"><i class="fas fa-moon"></i></button>
+                <button id="theme-toggle-btn" class="icon-btn"><i class="fas fa-moon"></i></button>
+                <button id="sidebar-close-btn" class="icon-btn mobile-only"><i class="fas fa-times"></i></button>
             </div>
         </aside>
         
         <!-- 主聊天区域 -->
         <main class="chat-container">
             <header class="chat-header">
-                <button id="show-sidebar-btn" class="mobile-only icon-btn"><i class="fas fa-bars"></i></button>
+                <button id="sidebar-toggle-btn" class="icon-btn mobile-only"><i class="fas fa-bars"></i></button>
                 <h3 id="current-chat-title">当前对话</h3>
-                <div class="api-controls">
-                    <div class="model-selector-wrapper">
-                        <select id="api-channel-selector" class="select-styled">
-                            <!-- API渠道选项将在这里动态生成 -->
-                        </select>
-                        <select id="model-selector" class="select-styled">
-                            <!-- 模型选项将在这里动态生成 -->
-                        </select>
-                    </div>
-                    <span id="api-balance" class="api-balance" title="API余额">--</span>
+                <div class="model-selector">
+                    <select id="api-selector" class="select-control">
+                        <option value="">选择API渠道</option>
+                    </select>
+                    <select id="model-selector" class="select-control">
+                        <option value="">选择模型</option>
+                    </select>
+                    <span id="api-balance" class="balance-badge">余额: --</span>
                 </div>
             </header>
             
-            <div class="chat-messages" id="chat-messages">
+            <div id="chat-messages" class="chat-messages">
                 <div class="welcome-screen">
-                    <div class="welcome-logo">
-                        <i class="fas fa-robot"></i>
-                    </div>
+                    <div class="welcome-logo"><i class="fas fa-robot"></i></div>
                     <h2>欢迎使用AI聊天助手</h2>
-                    <p>选择左侧的对话或开始新的对话</p>
+                    <p>开始新的对话或从左侧选择历史对话</p>
                 </div>
-                <!-- 消息将在这里动态生成 -->
             </div>
             
-            <div class="chat-input-container">
-                <textarea id="message-input" placeholder="输入您的问题..." rows="1"></textarea>
-                <button id="send-btn" class="send-btn">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
-            </div>
-            
-            <div class="message-stats">
-                <span id="user-stats" title="用户消息统计"><i class="fas fa-user"></i> 0字符 (0 tokens)</span>
-                <span id="assistant-stats" title="助手回复统计"><i class="fas fa-robot"></i> 0字符 (0 tokens)</span>
-                <span id="time-stats" title="响应时间"><i class="fas fa-clock"></i> 0s</span>
-            </div>
+            <footer class="chat-footer">
+                <div class="input-container">
+                    <textarea id="message-input" placeholder="输入您的问题..." rows="1"></textarea>
+                    <button id="send-btn" class="send-btn" disabled>
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+                <div class="message-stats">
+                    <span id="user-stats"><i class="fas fa-user"></i> 0字符 (0 tokens)</span>
+                    <span id="assistant-stats"><i class="fas fa-robot"></i> 0字符 (0 tokens)</span>
+                    <span id="time-stats"><i class="fas fa-clock"></i> 0s</span>
+                </div>
+            </footer>
         </main>
     </div>
     
-    <!-- 设置弹窗 -->
-    <div class="modal" id="settings-modal">
+    <!-- 对话操作菜单 -->
+    <div id="conversation-menu" class="context-menu">
+        <ul>
+            <li id="rename-conversation"><i class="fas fa-edit"></i> 重命名</li>
+            <li id="delete-conversation" class="danger"><i class="fas fa-trash"></i> 删除</li>
+        </ul>
+    </div>
+    
+    <!-- API设置对话框 -->
+    <div id="settings-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>API渠道设置</h2>
-                <button class="close-modal icon-btn"><i class="fas fa-times"></i></button>
+                <h2>API设置</h2>
+                <button class="close-btn"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
-                <div id="channels-list" class="channels-list">
-                    <!-- API渠道列表将在这里动态生成 -->
+                <div id="api-channels-list" class="channels-list">
+                    <!-- API渠道将在这里动态生成 -->
                 </div>
-                <button id="add-channel-btn" class="primary-btn"><i class="fas fa-plus"></i> 添加新渠道</button>
+                <button id="add-channel-btn" class="primary-btn"><i class="fas fa-plus"></i> 添加API渠道</button>
             </div>
         </div>
     </div>
     
-    <!-- 添加渠道弹窗 -->
-    <div class="modal" id="add-channel-modal">
+    <!-- API渠道表单对话框 -->
+    <div id="channel-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="channel-modal-title">添加API渠道</h2>
-                <button class="close-modal icon-btn"><i class="fas fa-times"></i></button>
+                <h2 id="channel-form-title">添加API渠道</h2>
+                <button class="close-btn"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
-                <form id="add-channel-form">
+                <form id="channel-form">
                     <div class="form-group">
                         <label for="channel-name">渠道名称</label>
-                        <input type="text" id="channel-name" class="form-input" required>
+                        <input type="text" id="channel-name" class="form-control" required>
                     </div>
                     <div class="form-group">
                         <label for="api-endpoint">API接入点</label>
-                        <input type="url" id="api-endpoint" class="form-input" required placeholder="例如: https://api.openai.com/v1/chat/completions">
+                        <input type="url" id="api-endpoint" class="form-control" required 
+                               placeholder="例如: https://api.openai.com/v1/chat/completions">
                     </div>
                     <div class="form-group">
                         <label for="api-key">API密钥</label>
-                        <div class="password-input-wrapper">
-                            <input type="password" id="api-key" class="form-input" required>
-                            <button type="button" class="toggle-password icon-btn" title="显示/隐藏密钥">
+                        <div class="password-field">
+                            <input type="password" id="api-key" class="form-control" required>
+                            <button type="button" id="toggle-password" class="toggle-password">
                                 <i class="fas fa-eye"></i>
                             </button>
                         </div>
                     </div>
                     <div class="form-group">
                         <label for="api-models">支持的模型 (一行一个)</label>
-                        <textarea id="api-models" class="form-input" rows="3" placeholder="例如:&#10;gpt-3.5-turbo&#10;gpt-4"></textarea>
+                        <textarea id="api-models" class="form-control" rows="3"
+                                  placeholder="例如:&#10;gpt-3.5-turbo&#10;gpt-4"></textarea>
                     </div>
-                    <button type="submit" class="primary-btn">保存</button>
+                    <div class="form-actions">
+                        <button type="button" class="secondary-btn cancel-btn">取消</button>
+                        <button type="submit" class="primary-btn">保存</button>
+                    </div>
                 </form>
             </div>
         </div>
     </div>
     
-    <!-- 确认删除弹窗 -->
-    <div class="modal" id="confirm-modal">
+    <!-- 确认对话框 -->
+    <div id="confirm-modal" class="modal">
         <div class="modal-content modal-sm">
             <div class="modal-header">
-                <h2>确认删除</h2>
-                <button class="close-modal icon-btn"><i class="fas fa-times"></i></button>
+                <h2 id="confirm-title">确认</h2>
+                <button class="close-btn"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
-                <p id="confirm-message">您确定要删除这个项目吗？</p>
-                <div class="button-group">
-                    <button id="confirm-cancel" class="secondary-btn">取消</button>
-                    <button id="confirm-delete" class="danger-btn">删除</button>
+                <p id="confirm-message">确定要执行此操作吗？</p>
+                <div class="form-actions">
+                    <button type="button" id="confirm-cancel" class="secondary-btn">取消</button>
+                    <button type="button" id="confirm-ok" class="primary-btn danger-btn">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 重命名对话框 -->
+    <div id="rename-modal" class="modal">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h2>重命名对话</h2>
+                <button class="close-btn"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="conversation-name">对话名称</label>
+                    <input type="text" id="conversation-name" class="form-control" required>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="secondary-btn cancel-btn">取消</button>
+                    <button type="button" id="rename-save" class="primary-btn">保存</button>
                 </div>
             </div>
         </div>
