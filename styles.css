@@ -1,28 +1,50 @@
 :root {
-    --primary-color: #4a6ee0;
-    --secondary-color: #f0f2f5;
-    --text-color: #333;
-    --light-text: #666;
-    --border-color: #e0e0e0;
-    --user-bubble: #e1f5fe;
-    --assistant-bubble: #f5f5f5;
-    --hover-color: #eaeffd;
-    --shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    /* 明亮主题 */
+    --bg-primary: #f8f9fa;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f0f2f5;
+    --text-primary: #202123;
+    --text-secondary: #6e6e80;
+    --border-color: #e5e5e5;
+    --accent-color: #10a37f;
+    --accent-hover: #0d8c6e;
+    --user-bubble: #dcf8ef;
+    --assistant-bubble: #f8f8f8;
+    --error-color: #e53935;
+    --success-color: #43a047;
+    --shadow-light: 0 2px 6px rgba(0, 0, 0, 0.05);
+    --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* 暗色主题 */
+[data-theme="dark"] {
+    --bg-primary: #1e1e2e;
+    --bg-secondary: #292938;
+    --bg-tertiary: #323244;
+    --text-primary: #e2e2e6;
+    --text-secondary: #aeaeb9;
+    --border-color: #3f3f51;
+    --accent-color: #10b981;
+    --accent-hover: #0ea572;
+    --user-bubble: #164c3f;
+    --assistant-bubble: #323244;
+    --shadow-light: 0 2px 6px rgba(0, 0, 0, 0.2);
+    --shadow-medium: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
-    background-color: #f8f9fa;
-    color: var(--text-color);
-    height: 100vh;
-    width: 100vw;
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
     overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .app-container {
@@ -30,48 +52,107 @@ body {
     height: 100vh;
     max-width: 1800px;
     margin: 0 auto;
-    box-shadow: var(--shadow);
+}
+
+/* 按钮样式 */
+.primary-btn {
+    padding: 8px 12px;
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+.primary-btn:hover {
+    background-color: var(--accent-hover);
+}
+
+.secondary-btn {
+    padding: 8px 12px;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.secondary-btn:hover {
+    background-color: var(--border-color);
+}
+
+.danger-btn {
+    padding: 8px 12px;
+    background-color: var(--error-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.danger-btn:hover {
+    background-color: #c62828;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn:hover {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
 }
 
 /* 侧边栏样式 */
 .sidebar {
-    width: 280px;
-    background-color: white;
+    width: 300px;
+    background-color: var(--bg-secondary);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
     transition: transform 0.3s ease;
     z-index: 10;
+    box-shadow: var(--shadow-light);
 }
 
 .sidebar-header {
     padding: 20px;
     border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
 }
 
 .sidebar-header h2 {
-    margin-bottom: 15px;
-    color: var(--primary-color);
-    width: 100%;
-}
-
-#new-chat-btn {
-    flex: 1;
-    padding: 10px;
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-#new-chat-btn:hover {
-    background-color: #3a58b3;
+    color: var(--accent-color);
+    margin-bottom: 16px;
+    font-size: 1.3rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .conversations-list {
@@ -81,9 +162,9 @@ body {
 }
 
 .conversation-item {
-    padding: 10px 15px;
-    border-radius: 5px;
-    margin-bottom: 5px;
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 6px;
     cursor: pointer;
     transition: background-color 0.2s;
     display: flex;
@@ -92,12 +173,12 @@ body {
 }
 
 .conversation-item:hover {
-    background-color: var(--hover-color);
+    background-color: var(--bg-tertiary);
 }
 
 .conversation-item.active {
-    background-color: var(--hover-color);
-    border-left: 3px solid var(--primary-color);
+    background-color: var(--bg-tertiary);
+    border-left: 3px solid var(--accent-color);
 }
 
 .conversation-title {
@@ -106,82 +187,89 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
     max-width: 200px;
+    color: var(--text-primary);
+}
+
+.conversation-time {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+.conversation-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0; /* 确保flex项目可以收缩 */
 }
 
 .delete-conversation {
-    color: var(--light-text);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 5px;
-    display: none;
+    opacity: 0;
+    transition: opacity 0.2s;
 }
 
 .conversation-item:hover .delete-conversation {
-    display: block;
-}
-
-.delete-conversation:hover {
-    color: #e53935;
+    opacity: 1;
 }
 
 .sidebar-footer {
     padding: 15px;
     border-top: 1px solid var(--border-color);
-}
-
-#settings-btn {
-    width: 100%;
-    padding: 10px;
-    background: none;
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-#settings-btn:hover {
-    background-color: var(--secondary-color);
-}
-
-/* 聊天区域样式 */
-.chat-container {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background-color: white;
-}
-
-.chat-header {
-    padding: 15px 20px;
-    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
-.api-controls {
+/* 主聊天区域 */
+.chat-container {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    gap: 5px;
+    background-color: var(--bg-primary);
+    position: relative;
 }
 
-.api-selector {
+.chat-header {
+    padding: 15px 20px;
+    background-color: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--shadow-light);
+}
+
+.chat-header h3 {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.api-controls {
     display: flex;
     align-items: center;
+    gap: 15px;
+}
+
+.model-selector-wrapper {
+    display: flex;
     gap: 10px;
 }
 
-#api-channel-selector, #model-selector {
-    padding: 5px 10px;
+.select-styled {
+    padding: 8px 12px;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 6px;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: 14px;
+    cursor: pointer;
+    min-width: 140px;
 }
 
-#api-balance {
-    font-size: 12px;
-    color: var(--light-text);
+.api-balance {
+    font-size: 14px;
+    color: var(--text-secondary);
+    white-space: nowrap;
 }
 
 .chat-messages {
@@ -191,13 +279,45 @@ body {
     display: flex;
     flex-direction: column;
     gap: 20px;
+    background-color: var(--bg-primary);
+}
+
+.welcome-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.welcome-logo {
+    font-size: 48px;
+    color: var(--accent-color);
+    margin-bottom: 20px;
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--bg-tertiary);
+    border-radius: 50%;
+}
+
+.welcome-screen h2 {
+    margin-bottom: 10px;
+    color: var(--text-primary);
+}
+
+.welcome-screen p {
+    max-width: 400px;
 }
 
 .message-group {
     display: flex;
     flex-direction: column;
-    max-width: 80%;
-    gap: 2px;
+    max-width: 85%;
 }
 
 .message-group.user {
@@ -209,133 +329,140 @@ body {
 }
 
 .message-content {
-    padding: 10px 15px;
-    border-radius: 18px;
+    padding: 12px 16px;
+    border-radius: 12px;
     position: relative;
-    font-size: 15px;
     line-height: 1.5;
+    font-size: 15px;
 }
 
-.message-group.user .message-content {
+.user .message-content {
     background-color: var(--user-bubble);
+    color: var(--text-primary);
     border-bottom-right-radius: 4px;
 }
 
-.message-group.assistant .message-content {
+.assistant .message-content {
     background-color: var(--assistant-bubble);
+    color: var(--text-primary);
     border-bottom-left-radius: 4px;
 }
 
+.message-info {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 14px;
+}
+
+.user .message-info {
+    justify-content: flex-end;
+}
+
+.message-sender {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
 .message-time {
-    font-size: 11px;
-    color: var(--light-text);
-    margin-left: 10px;
-    margin-top: 2px;
-}
-
-.message-group.user .message-time {
-    text-align: right;
-    margin-right: 10px;
-}
-
-.typing-indicator {
-    display: inline-block;
-    position: relative;
-}
-
-.typing-indicator::after {
-    content: '';
-    position: absolute;
-    bottom: -1px;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background-color: var(--primary-color);
-    animation: typing 1s infinite;
-}
-
-@keyframes typing {
-    0% { width: 0; }
-    50% { width: 100%; }
-    100% { width: 0; }
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-left: 8px;
 }
 
 .chat-input-container {
-    padding: 15px;
+    padding: 15px 20px;
+    background-color: var(--bg-secondary);
     border-top: 1px solid var(--border-color);
     display: flex;
     align-items: flex-end;
     gap: 10px;
+    box-shadow: var(--shadow-light);
 }
 
 #message-input {
     flex: 1;
-    border: 1px solid var(--border-color);
-    border-radius: 18px;
     padding: 12px 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
     resize: none;
-    max-height: 150px;
-    overflow-y: auto;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
     font-size: 15px;
-    line-height: 1.5;
+    max-height: 150px;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 #message-input:focus {
     outline: none;
-    border-color: var(--primary-color);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.2);
 }
 
-#send-btn {
-    width: 40px;
-    height: 40px;
+.send-btn {
+    width: 42px;
+    height: 42px;
     border-radius: 50%;
-    border: none;
-    background-color: var(--primary-color);
+    background-color: var(--accent-color);
     color: white;
-    cursor: pointer;
+    border: none;
     display: flex;
-    justify-content: center;
     align-items: center;
+    justify-content: center;
+    cursor: pointer;
     transition: background-color 0.2s;
 }
 
-#send-btn:hover {
-    background-color: #3a58b3;
-}
-
-#send-btn:disabled {
-    background-color: var(--border-color);
-    cursor: not-allowed;
+.send-btn:hover {
+    background-color: var(--accent-hover);
 }
 
 .message-stats {
-    padding: 5px 15px;
-    border-top: 1px solid var(--border-color);
+    padding: 8px 20px;
     display: flex;
     justify-content: space-between;
+    background-color: var(--bg-secondary);
+    color: var(--text-secondary);
     font-size: 12px;
-    color: var(--light-text);
+    border-top: 1px solid var(--border-color);
 }
 
-/* 模态框样式 */
+/* 模态框 */
 .modal {
     display: none;
     position: fixed;
-    top: 0;
+    z-index: 100;
     left: 0;
+    top: 0;
     width: 100%;
     height: 100%;
     background-color: rgba(0, 0, 0, 0.5);
-    z-index: 100;
+    backdrop-filter: blur(3px);
+    overflow: auto;
 }
 
 .modal-content {
-    background-color: white;
+    background-color: var(--bg-secondary);
     margin: 10% auto;
     width: 500px;
-    max-width: 90%;
-    border-radius: 8px;
-    box-shadow: var(--shadow);
+    border-radius: 10px;
+    box-shadow: var(--shadow-medium);
+    animation: modalFadeIn 0.2s;
+}
+
+.modal-sm {
+    width: 400px;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .modal-header {
@@ -346,10 +473,9 @@ body {
     align-items: center;
 }
 
-.close-modal {
-    font-size: 24px;
-    cursor: pointer;
-    color: var(--light-text);
+.modal-header h2 {
+    font-size: 1.2rem;
+    color: var(--text-primary);
 }
 
 .modal-body {
@@ -357,19 +483,18 @@ body {
 }
 
 .channels-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
     margin-bottom: 20px;
-    max-height: 300px;
-    overflow-y: auto;
 }
 
 .channel-item {
-    padding: 10px;
-    border: 1px solid var(--border-color);
-    border-radius: 5px;
-    margin-bottom: 10px;
+    background-color: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 15px;
     display: flex;
     justify-content: space-between;
-    align-items: center;
 }
 
 .channel-info {
@@ -377,109 +502,88 @@ body {
 }
 
 .channel-name {
-    font-weight: bold;
+    font-weight: 500;
     margin-bottom: 5px;
+    color: var(--text-primary);
 }
 
-.channel-endpoint, .channel-models {
-    font-size: 12px;
-    color: var(--light-text);
+.channel-endpoint {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 5px;
     word-break: break-all;
+}
+
+.channel-models {
+    font-size: 13px;
+    color: var(--text-secondary);
 }
 
 .channel-actions {
     display: flex;
     gap: 10px;
+    align-items: flex-start;
 }
 
-.edit-channel, .delete-channel {
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--light-text);
-    transition: color 0.2s;
-}
-
-.edit-channel:hover {
-    color: var(--primary-color);
-}
-
-.delete-channel:hover {
-    color: #e53935;
-}
-
-#add-channel-btn {
-    width: 100%;
-    padding: 10px;
-    background-color: var(--primary-color);
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-/* 表单样式 */
 .form-group {
     margin-bottom: 15px;
 }
 
 .form-group label {
     display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
+    margin-bottom: 8px;
+    color: var(--text-primary);
 }
 
-.form-group input, .form-group textarea {
+.form-input {
     width: 100%;
-    padding: 10px;
+    padding: 10px 12px;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 6px;
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 15px;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.form-group textarea {
-    min-height: 80px;
-    resize: vertical;
+.form-input:focus {
+    outline: none;
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.2);
 }
 
-form button {
-    padding: 10px 15px;
-    background-color: var(--primary-color);
-    color: white;
+.password-input-wrapper {
+    position: relative;
+    display: flex;
+}
+
+.password-input-wrapper input {
+    flex: 1;
+    padding-right: 40px;
+}
+
+.toggle-password {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
     border: none;
-    border-radius: 4px;
+    color: var(--text-secondary);
     cursor: pointer;
-    margin-top: 10px;
 }
 
-/* 移动端适配 */
+.empty-list {
+    text-align: center;
+    color: var(--text-secondary);
+    padding: 20px 0;
+}
+
+/* 响应式设计 */
 .mobile-only {
     display: none;
 }
 
-/* 代码格式 */
-pre {
-    background-color: #f5f5f5;
-    padding: 10px;
-    border-radius: 4px;
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    overflow-x: auto;
-    margin: 10px 0;
-}
-
-code {
-    font-family: 'Courier New', Courier, monospace;
-    background-color: #f5f5f5;
-    padding: 2px 4px;
-    border-radius: 3px;
-}
-
-pre code {
-    background-color: transparent;
-    padding: 0;
-}
-
-/* 响应式设计 */
 @media (max-width: 1024px) {
     .message-group {
         max-width: 90%;
@@ -493,7 +597,8 @@ pre code {
         top: 0;
         bottom: 0;
         transform: translateX(-100%);
-        width: 250px;
+        width: 280px;
+        z-index: 50;
     }
     
     .sidebar.active {
@@ -508,64 +613,43 @@ pre code {
         display: block;
     }
     
-    .api-selector {
+    .model-selector-wrapper {
         flex-wrap: wrap;
-        justify-content: flex-end;
         gap: 5px;
     }
     
-    #api-channel-selector, #model-selector {
-        width: 120px;
+    .select-styled {
+        min-width: 120px;
     }
     
     .message-stats {
-        flex-direction: column;
+        flex-wrap: wrap;
         gap: 5px;
     }
     
-    .message-group {
-        max-width: 95%;
+    .modal-content {
+        margin: 5% auto;
+        width: 90%;
     }
 }
 
 @media (max-width: 480px) {
     .chat-header {
         flex-wrap: wrap;
-    }
-    
-    .chat-header h3 {
-        order: -1;
-        width: 100%;
-        margin-bottom: 10px;
+        gap: 10px;
     }
     
     .api-controls {
         width: 100%;
-    }
-    
-    .api-selector {
-        width: 100%;
-        flex-direction: row;
-        justify-content: space-between;
         flex-wrap: wrap;
     }
     
-    .modal-content {
-        margin: 5% auto;
-        width: 95%;
-    }
-    
     .message-content {
-        padding: 8px 12px;
+        padding: 10px 14px;
+        font-size: 14px;
     }
     
-    .chat-messages {
-        padding: 10px;
+    .channel-actions {
+        flex-direction: column;
     }
-}
-
-.empty-list {
-    text-align: center;
-    color: var(--light-text);
-    padding: 20px 0;
 }
