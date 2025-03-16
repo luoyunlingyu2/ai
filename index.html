@@ -76,11 +76,11 @@
     <div id="conversation-menu" class="context-menu">
         <ul>
             <li id="rename-conversation"><i class="fas fa-edit"></i> 重命名</li>
-            <li id="delete-conversation" class="danger"><i class="fas fa-trash"></i> 删除</li>
+            <li id="delete-conversation"><i class="fas fa-trash"></i> 删除</li>
         </ul>
     </div>
     
-    <!-- API设置对话框 -->
+    <!-- 设置模态框 -->
     <div id="settings-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -88,19 +88,21 @@
                 <button class="close-btn"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
-                <div id="api-channels-list" class="channels-list">
-                    <!-- API渠道将在这里动态生成 -->
+                <div class="settings-actions">
+                    <button id="add-channel-btn" class="primary-btn"><i class="fas fa-plus"></i> 添加API渠道</button>
                 </div>
-                <button id="add-channel-btn" class="primary-btn"><i class="fas fa-plus"></i> 添加API渠道</button>
+                <div id="api-channels-list" class="channels-list">
+                    <!-- API渠道列表将在这里动态生成 -->
+                </div>
             </div>
         </div>
     </div>
     
-    <!-- API渠道表单对话框 -->
+    <!-- 添加/编辑API渠道模态框 -->
     <div id="channel-modal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 id="channel-form-title">添加API渠道</h2>
+                <h2 id="channel-modal-title">添加API渠道</h2>
                 <button class="close-btn"><i class="fas fa-times"></i></button>
             </div>
             <div class="modal-body">
@@ -174,7 +176,15 @@
         </div>
     </div>
     
+    <!-- 通知系统 -->
+    <div id="notification-container" class="notification-container"></div>
+    
+    <!-- JavaScript模块 -->
+    <script src="utils.js"></script>
     <script src="api.js"></script>
+    <script src="ui.js"></script>
+    <script src="settings.js"></script>
+    <script src="conversation.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
