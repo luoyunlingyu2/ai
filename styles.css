@@ -781,3 +781,46 @@ pre code {
         gap: 5px;
     }
 }
+/* 模态框显示动画 */
+.animate-in {
+    animation: modalFadeIn 0.3s forwards;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 强制覆盖可能影响模态框显示的样式 */
+.modal {
+    display: none;
+    position: fixed !important;
+    z-index: 1000 !important;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    height: 100% !important;
+    background-color: rgba(0, 0, 0, 0.5) !important;
+    overflow: auto;
+}
+
+.modal-content {
+    background-color: var(--bg-sidebar) !important;
+    margin: 15% auto !important;
+    width: 500px !important;
+    max-width: 90% !important;
+    border-radius: 10px !important;
+    box-shadow: var(--shadow-lg) !important;
+    animation: modalFadeIn 0.3s forwards;
+}
+
+/* 确保背景滚动被禁用 */
+body.modal-open {
+    overflow: hidden !important;
+}
