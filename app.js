@@ -1011,3 +1011,158 @@ function escapeHtml(text) {
     };
     return text.replace(/[&<>"']/g, m => map[m]);
 }
+// 渲染API渠道列表（添加到app.js）
+function renderChannelsList() {
+    const channelsList = document.getElementById('channels-list');
+    channelsList.innerHTML = '';
+    
+    if (apiChannels.length === 0) {
+        channelsList.innerHTML = '<div class="empty-list">暂无API渠道，请添加</div>';
+        return;
+    }
+    
+    apiChannels.forEach(channel => {
+        const channelItem = document.createElement('div');
+        channelItem.classList.add('channel-item');
+        
+        const channelInfo = document.createElement('div');
+        channelInfo.classList.add('channel-info');
+        
+        const channelName = document.createElement('div');
+        channelName.classList.add('channel-name');
+        channelName.textContent = channel.name;
+        
+        const channelEndpoint = document.createElement('div');
+        channelEndpoint.classList.add('channel-endpoint');
+        channelEndpoint.textContent = channel.endpoint;
+        
+        const modelCount = document.createElement('div');
+        modelCount.classList.add('model-count');
+        modelCount.textContent = `${channel.models.length} 个模型`;
+        
+        channelInfo.appendChild(channelName);
+        channelInfo.appendChild(channelEndpoint);
+        channelInfo.appendChild(modelCount);
+        
+        const channelActions = document.createElement('div');
+        channelActions.classList.add('channel-actions');
+        
+        const editBtn = document.createElement('button');
+        editBtn.classList.add('secondary-btn');
+        editBtn.innerHTML = '<i class="fas fa-edit"></i> 编辑';
+        editBtn.addEventListener('click', () => editChannel(channel.id));
+        
+        const deleteBtn = document.createElement('button');
+        deleteBtn.classList.add('danger-btn');
+        deleteBtn.innerHTML = '<i class="fas fa-trash"></i> 删除';
+        deleteBtn.addEventListener('click', () => confirmDeleteChannel(channel.id));
+        
+        channelActions.appendChild(editBtn);
+        channelActions.appendChild(deleteBtn);
+        
+        channelItem.appendChild(channelInfo);
+        channelItem.appendChild(channelActions);
+        
+        channelsList.appendChild(channelItem);
+    });
+}
+
+// 确认删除API渠道
+function confirmDeleteChannel(channelId) {
+    const channel = apiChannels.find(c => c.id === channelId);
+    if (!channel) return;
+    
+    const confirmMessage = document.getElementById('confirm-message');
+    confirmMessage.textContent = `确定要删除「${channel.name}」渠道吗？`;
+    
+    const confirmDelete = document.getElementById('confirm-delete');
+    const confirmCancel = document.getElementById('confirm-cancel');
+    
+    // 设置确认按钮
+    confirmDelete.onclick = () => {
+        deleteChannel(channelId);
+        confirmModal.style.display = 'none';
+    };
+    
+    // 设置取消按钮
+    confirmCancel.onclick = () => {
+        confirmModal.style.display = 'none';
+    };
+    
+    confirmModal.style.display = 'block';
+}
+
+// 编辑API渠道
+function editChannel(channelId) {
+    const channel = apiChannels.find(c => c.id === channelId);
+    if (!channel) return;
+    
+    // 设置标题
+    document.getElementById('channel-modal-title').textContent = '编辑API渠道';
+    
+    // 将现有模型列表转换为文本格式
+    const modelsText = channel.models.map(m => m.name).join('\n');
+    
+    // 填充表单
+    document.getElementById('channel-name').value = channel.name;
+    document.getElementById('api-endpoint').value = channel.endpoint;
+    document.getElementById('api-key').value = channel.key;
+    document.getElementById('api-models').value = modelsText;
+    
+    // 修改提交处理以更新而非添加
+    addChannelForm.dataset.mode = 'edit';
+    addChannelForm.dataset.channelId = channelId;
+    
+    // 显示模态框
+    addChannelModal.style.display = 'block';
+}
+// 添加密码显示/隐藏功能（在setupEventListeners中添加）
+document.querySelector('.toggle-password').addEventListener('click', function() {
+    const passwordInput = document.getElementById('api-key');
+    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+    passwordInput.setAttribute('type', type);
+    
+    // 切换图标
+    const icon = this.querySelector('i');
+    if (type === 'text') {
+        icon.classList.remove('fa-eye');
+        icon.classList.add('fa-eye-slash');
+    } else {
+        icon.classList.remove('fa-eye-slash');
+        icon.classList.add('fa-eye');
+    }
+});
+// 加载主题设置
+function loadTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
+    
+    // 更新按钮图标
+    updateThemeIcon(savedTheme);
+    
+    // 设置主题切换监听
+    toggleThemeBtn.addEventListener('click', toggleTheme);
+}
+
+// 切换主题
+function toggleTheme() {
+    const currentTheme = document.body.getAttribute('data-theme');
+    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+    
+    document.body.setAttribute('data-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    
+    updateThemeIcon(newTheme);
+}
+
+// 更新主题图标
+function updateThemeIcon(theme) {
+    const icon = toggleThemeBtn.querySelector('i');
+    if (theme === 'dark') {
+        icon.classList.remove('fa-moon');
+        icon.classList.add('fa-sun');
+    } else {
+        icon.classList.remove('fa-sun');
+        icon.classList.add('fa-moon');
+    }
+}
